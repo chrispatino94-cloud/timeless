@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import VoiceMessage from "./VoiceMessage.jsx";
 
 const STORAGE_KEY = "timeless_vault_v1";
 
@@ -1207,6 +1208,8 @@ Write the message directly, as the person writing it. No preamble, no meta-comme
           >
             {selected.full || selected.preview}
           </div>
+
+          <VoiceMessage messageText={selected.full || selected.preview} />
 
           <div
             style={{
