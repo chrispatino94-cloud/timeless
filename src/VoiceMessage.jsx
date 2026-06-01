@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-const RACHEL_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
+const VOICE_REQUEST_TIMEOUT_MS = 45000;
+
+const voiceErrors = {
+  emptyText: "Write a message first, then I can turn it into audio.",
+  paymentRequired:
+    "This voice is not available on the current ElevenLabs plan yet. Please try again after the voice setting is updated.",
+  timeout: "Voice generation is taking longer than expected. Please try again in a moment.",
+  apiKeyMissing: "Voice generation is not connected yet. The site owner needs to add the ElevenLabs API key.",
+  fallback: "I could not generate the voice right now. Please try again.",
+};
 
 export default function VoiceMessage({ messageText }) {
   const audioRef = useRef(null);
@@ -29,9 +38,13 @@ export default function VoiceMessage({ messageText }) {
 
   const generateVoice = async () => {
     if (!cleanText) {
-      setError("Write or select a message before generating voice.");
+      // Empty text is handled before the request so users get instant feedback and we do not spend API credits on a bad payload.
+      setError(voiceErrors.emptyText);
       return;
     }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), VOICE_REQUEST_TIMEOUT_MS);
 
     setIsGenerating(true);
     setError("");
@@ -44,20 +57,40 @@ export default function VoiceMessage({ messageText }) {
         },
         body: JSON.stringify({
           text: cleanText,
-          voiceId: RACHEL_VOICE_ID,
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
+
+        if (response.status === 402 || data.code === "payment_required") {
+          // A 402 means ElevenLabs rejected the selected voice or plan, so the message points at account setup instead of blaming the user's text.
+          setError(voiceErrors.paymentRequired);
+          return;
+        }
+
+        if (data.code === "api_key_missing") {
+          // Missing API keys are server configuration issues; the friendly copy avoids exposing environment variable details to regular users.
+          setError(voiceErrors.apiKeyMissing);
+          return;
+        }
+
         throw new Error(data.error || `Voice generation failed with ${response.status}`);
       }
 
       const audioBlob = await response.blob();
       setAudioUrl(URL.createObjectURL(audioBlob));
     } catch (err) {
-      setError(err.message || "Could not generate voice right now.");
+      if (err.name === "AbortError") {
+        // TTS can occasionally hang behind an upstream service; aborting keeps the button from spinning forever.
+        setError(voiceErrors.timeout);
+        return;
+      }
+
+      setError(err.message || voiceErrors.fallback);
     } finally {
+      window.clearTimeout(timeoutId);
       setIsGenerating(false);
     }
   };

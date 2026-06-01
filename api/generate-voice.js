@@ -1,6 +1,6 @@
 import { Readable } from "node:stream";
 
-const DEFAULT_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
+const DEFAULT_VOICE_ID = "pNInz6obpgDQGcFmaJgB";
 
 async function parseJsonBody(req) {
   if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) {
@@ -36,7 +36,10 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
-    sendJson(res, 500, { error: "ElevenLabs API key is not configured" });
+    sendJson(res, 500, {
+      code: "api_key_missing",
+      error: "ElevenLabs API key is not configured",
+    });
     return;
   }
 
@@ -82,7 +85,10 @@ export default async function handler(req, res) {
 
     if (!elevenLabsResponse.ok) {
       const details = await elevenLabsResponse.text();
+      const code = elevenLabsResponse.status === 402 ? "payment_required" : "elevenlabs_error";
+
       sendJson(res, elevenLabsResponse.status, {
+        code,
         error: "ElevenLabs voice generation failed",
         details: details.slice(0, 500),
       });
