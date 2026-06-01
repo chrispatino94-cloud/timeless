@@ -28,13 +28,6 @@ export default function VoiceMessage({ messageText }) {
   }, [audioUrl]);
 
   const generateVoice = async () => {
-    const apiKey = process.env.REACT_APP_ELEVENLABS_API_KEY;
-
-    if (!apiKey || apiKey === "your_key_here") {
-      setError("Add your ElevenLabs API key to .env first.");
-      return;
-    }
-
     if (!cleanText) {
       setError("Write or select a message before generating voice.");
       return;
@@ -44,25 +37,20 @@ export default function VoiceMessage({ messageText }) {
     setError("");
 
     try {
-      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${RACHEL_VOICE_ID}`, {
+      const response = await fetch("/api/generate-voice", {
         method: "POST",
         headers: {
-          Accept: "audio/mpeg",
           "Content-Type": "application/json",
-          "xi-api-key": apiKey,
         },
         body: JSON.stringify({
           text: cleanText,
-          model_id: "eleven_multilingual_v2",
-          voice_settings: {
-            stability: 0.45,
-            similarity_boost: 0.75,
-          },
+          voiceId: RACHEL_VOICE_ID,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`ElevenLabs returned ${response.status}`);
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Voice generation failed with ${response.status}`);
       }
 
       const audioBlob = await response.blob();
