@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import VoiceMessage from "./VoiceMessage.jsx";
+import VoiceMessage from "./VoiceMessage";
 
 const STORAGE_KEY = "timeless_vault_v1";
 
